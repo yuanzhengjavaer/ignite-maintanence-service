@@ -17,6 +17,7 @@
 package com.nomura.service.impl;
 
 import com.nomura.components.remote.VehicleService;
+import com.nomura.dao.IgniteMaintenanceDao;
 import com.nomura.model.dto.VehicleFullInfo;
 import com.nomura.model.dto.VehicleInfoReq;
 import com.nomura.model.po.Vehicle;
@@ -51,23 +52,34 @@ import java.util.List;
  */
 public class MaintenanceServiceImpl implements MaintenanceService {
 
-//    private static final long serialVersionUID = 5439969228238656800L;
+    //    private static final long serialVersionUID = 5439969228238656800L;
     @IgniteInstanceResource
     @Autowired
     @Lazy
     private Ignite ignite;
 
-    /** Reference to the cache. */
+    /**
+     * Reference to the cache.
+     */
     private IgniteCache<Integer, Maintenance> maintCache;
 
-    /** Maintenance IDs generator */
+    /**
+     * Maintenance IDs generator
+     */
     private IgniteAtomicSequence sequence;
 
-    /** Processor that accepts requests from external apps that don't use Apache Ignite API. */
+    /**
+     * Processor that accepts requests from external apps that don't use Apache Ignite API.
+     */
     private ExternalCallsProcessor externalCallsProcessor;
 
+    @Autowired
+    @Lazy
+    private IgniteMaintenanceDao igniteMaintenanceDao;
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     public void init(ServiceContext ctx) throws Exception {
         System.out.println("Initializing Maintenance Service on node:" + ignite.cluster().localNode());
 
@@ -75,15 +87,16 @@ public class MaintenanceServiceImpl implements MaintenanceService {
          * It's assumed that the cache has already been deployed. To do that, make sure to start Data Nodes with
          * a respective cache configuration.
          */
-        maintCache = ignite.getOrCreateCache("maintenance");
-
+//        maintCache = ignite.cache("maintenance");
         /** Processor that accepts requests from external apps that don't use Apache Ignite API. */
-        externalCallsProcessor = new ExternalCallsProcessor();
-
-        externalCallsProcessor.start();
+//        externalCallsProcessor = new ExternalCallsProcessor();
+//
+//        externalCallsProcessor.start();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     public void execute(ServiceContext ctx) throws Exception {
         System.out.println("Executing Maintenance Service on node:" + ignite.cluster().localNode());
 
@@ -93,7 +106,9 @@ public class MaintenanceServiceImpl implements MaintenanceService {
         sequence = ignite.atomicSequence("MaintenanceIds", 1, true);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     public void cancel(ServiceContext ctx) {
         System.out.println("Stopping Maintenance Service on node:" + ignite.cluster().localNode());
 
@@ -101,7 +116,9 @@ public class MaintenanceServiceImpl implements MaintenanceService {
         externalCallsProcessor.interrupt();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     public Date scheduleVehicleMaintenance(int vehicleId) {
         Date date = new Date();
         // Getting access to VehicleService proxy. The proxy allows to call remotely deployed services.
@@ -113,15 +130,17 @@ public class MaintenanceServiceImpl implements MaintenanceService {
 
         // Remembering scheduled appointment.
         long pk = sequence.getAndIncrement();
-        maintCache.put((int)pk, new Maintenance((int)pk,vehicleId, date));
+        maintCache.put((int) pk, new Maintenance((int) pk, vehicleId, date));
 
         return date;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     public List<Maintenance> getMaintenanceRecords(int vehicleId) {
         SqlQuery<Long, Maintenance> query = new SqlQuery<Long, Maintenance>(Maintenance.class,
-            "WHERE vehicleId = ?").setArgs(vehicleId);
+                "WHERE vehicleId = ?").setArgs(vehicleId);
 
         List<Cache.Entry<Long, Maintenance>> res = maintCache.query(query).getAll();
 
@@ -136,9 +155,10 @@ public class MaintenanceServiceImpl implements MaintenanceService {
 
     @Override
     public void putMaintenanceNew(Maintenance maintenance) {
-        long pk = sequence.getAndIncrement();
-        maintenance.setId((int)pk);
-        maintCache.put(maintenance.getId(),maintenance);
+
+        long pk = ignite.atomicSequence("MaintenanceIds", 1, true).getAndIncrement();
+        maintenance.setId((int) pk);
+        igniteMaintenanceDao.insert(maintenance);
     }
 
 
@@ -146,11 +166,16 @@ public class MaintenanceServiceImpl implements MaintenanceService {
      * Thread that accepts request from external applications that don't use Apache Ignite service grid API.
      */
     private class ExternalCallsProcessor extends Thread {
-        /** Server socket to accept external connections. */
+        /**
+         * Server socket to accept external connections.
+         */
         private ServerSocket externalConnect;
 
-        /** {@inheritDoc} */
-        @Override public void run() {
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void run() {
             try {
                 externalConnect = new ServerSocket(50000);
 
@@ -173,20 +198,21 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                     dos.close();
                     socket.close();
                 }
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
-        /** {@inheritDoc} */
-        @Override public void interrupt() {
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void interrupt() {
             super.interrupt();
 
             try {
                 externalConnect.close();
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }

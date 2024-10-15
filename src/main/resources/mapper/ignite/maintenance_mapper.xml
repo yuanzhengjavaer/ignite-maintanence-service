@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.nomura.dao.IgniteMaintenanceDao">
+
+    <resultMap id="dataMap" type="com.nomura.model.po.Maintenance">
+        <id column="id" property="id"/>
+        <result column="vehicleId" property="vehicleId"/>
+        <result column="date" property="date"/>
+    </resultMap>
+
+    <select id="insert" parameterType="com.nomura.model.po.Maintenance">
+        INSERT INTO "maintenance".MAINTENANCE (id, vehicleId, date)
+        VALUES (#{id}, #{vehicleId}, #{date})
+    </select>
+
+<!--    <update id="updateOrderStatusByUserMobile" parameterType="java.lang.String">-->
+<!--        UPDATE user_order SET order_status = 2 WHERE user_mobile = #{userMobile}-->
+<!--    </update>-->
+
+<!--    <update id="updateOrderStatusByUserId" parameterType="java.lang.String">-->
+<!--        UPDATE user_order SET order_status = 1 WHERE user_id = #{userId}-->
+<!--    </update>-->
+
+<!--    <update id="updateOrderStatusByOrderId" parameterType="java.lang.String">-->
+<!--        UPDATE user_order SET order_status = 1 WHERE order_id = #{orderId}-->
+<!--    </update>-->
+
+    <select id="getByPK" resultMap="dataMap">
+        SELECT * FROM maintenance where id = #{id}
+    </select>
+
+</mapper>

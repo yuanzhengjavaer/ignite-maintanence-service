@@ -1,9 +1,11 @@
 package com.nomura.controller;
 
+import com.nomura.model.dto.TxTestReq;
 import com.nomura.model.dto.VehicleInfoReq;
-import com.nomura.model.po.Maintenance;
+
 import com.nomura.service.BussinessService;
-import com.nomura.service.MaintenanceService;
+
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/tx")
@@ -25,7 +28,7 @@ public class TxTestController {
     }
 
     @PostMapping("/local")
-    public void localTxTest(@RequestBody List<Maintenance> maintenances){
-        bussinessService.saveMaintenanceInfo(maintenances);
+    public void localTxTest(@RequestBody TxTestReq req){
+        bussinessService.saveMaintenanceInfo(req);
     }
 }

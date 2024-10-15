@@ -9,5 +9,21 @@ spring:
       max-file-size: 10MB
   main:
     allow-circular-references: true
+  ignite.datasource:
+    url: jdbc:ignite:thin://127.0.0.1/
+    driver-class-name: org.apache.ignite.IgniteJdbcThinDriver
+    type: com.zaxxer.hikari.HikariDataSource
+    initialSize: 20
+    minIdle: 20
+    maxActive: 20
+    maxWait: 60000
+    timeBetweenEvictionRunsMillis: 60000
+    validationQuery: SELECT 1
+    testWhileIdle: true
+    testOnBorrow: false
+    testOnReturn: false
+    poolPreparedStatements: true
+    maxPoolPreparedStatementPerConnectionSize: 20
+    filters: stat
 logging:
   config: classpath:log4j2.xml

@@ -5,22 +5,27 @@ import com.nomura.components.filter.MaintenanceServiceFilter;
 import com.nomura.components.remote.VehicleService;
 import com.nomura.service.MaintenanceService;
 import com.nomura.service.impl.MaintenanceServiceImpl;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.cache.CacheAtomicityMode;
-import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.configuration.TransactionConfiguration;
+import org.apache.ignite.configuration.*;
 import org.apache.ignite.logger.log4j2.Log4J2Logger;
 import org.apache.ignite.services.ServiceConfiguration;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.springframework.boot.autoconfigure.IgniteConfigurer;
+import org.mybatis.spring.SqlSessionFactoryBean;
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.core.env.Environment;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
+import javax.sql.DataSource;
 import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -64,7 +69,7 @@ public class IgniteClientConfig {
 
     private ServiceConfiguration serviceConfiguration(ApplicationContext applicationContext) {
         ServiceConfiguration svcConfig = new ServiceConfiguration();
-        svcConfig.setService(applicationContext.getBean("MaintenanceService",MaintenanceService.class));
+        svcConfig.setService(applicationContext.getBean("maintenanceService",MaintenanceService.class));
         svcConfig.setName(MaintenanceService.SERVICE_NAME);
         svcConfig.setMaxPerNodeCount(1);
         svcConfig.setNodeFilter(new MaintenanceServiceFilter());
@@ -80,10 +85,10 @@ public class IgniteClientConfig {
         return vehicleService;
     }
 
-//    @Bean
-//    public MaintenanceService maintenanceService() {
-//        return new MaintenanceServiceImpl();
-//    }
+    @Bean
+    public MaintenanceService maintenanceService() {
+        return new MaintenanceServiceImpl();
+    }
 
     @Bean
     public TcpDiscoveryVmIpFinder tcpDiscoveryVmIpFinder() {
@@ -102,6 +107,42 @@ public class IgniteClientConfig {
         Map<String, Object> userAttributes = new HashMap<>();
         userAttributes.put(Constants.SERVICE_NODE_TAG, true);
         return userAttributes;
+    }
+
+
+    @Configuration
+    @MapperScan(basePackages = "com.nomura.dao", sqlSessionFactoryRef = "igniteSqlSessionFactory")
+    static class IgniteMyBatisConfig {
+
+        @Bean("igniteDataSource")
+        @ConfigurationProperties(prefix = "spring.ignite.datasource")
+        public DataSource igniteDataSource(Environment environment,IgniteConfiguration igniteConfig) {
+            DataStorageConfiguration dataStorageConfig = new DataStorageConfiguration();
+            DataRegionConfiguration defaultDataRegionConfig = new DataRegionConfiguration();
+            defaultDataRegionConfig.setPersistenceEnabled(false);
+            dataStorageConfig.setDefaultDataRegionConfiguration(defaultDataRegionConfig);
+            igniteConfig.setDataStorageConfiguration(dataStorageConfig);
+
+            ConnectorConfiguration configuration = new ConnectorConfiguration();
+            configuration.setIdleTimeout(6000);
+            configuration.setThreadPoolSize(100);
+            configuration.setIdleTimeout(60000);
+
+            igniteConfig.setConnectorConfiguration(configuration);
+
+            return DataSourceBuilder.create()
+                    .url(environment.getProperty("spring.ignite.datasource.url"))
+                    .driverClassName(environment.getProperty("spring.ignite.datasource.driver-class-name"))
+                    .build();
+        }
+
+        @Bean("igniteSqlSessionFactory")
+        public SqlSessionFactory igniteSqlSessionFactory(DataSource igniteDataSource) throws Exception {
+            SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
+            factoryBean.setDataSource(igniteDataSource);
+            factoryBean.setMapperLocations(new PathMatchingResourcePatternResolver().getResources("classpath:/mapper/ignite/*.xml"));
+            return factoryBean.getObject();
+        }
     }
 
 }
