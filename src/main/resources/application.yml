@@ -1,0 +1,13 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: ignite-maintenance-service
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+  main:
+    allow-circular-references: true
+logging:
+  config: classpath:log4j2.xml
