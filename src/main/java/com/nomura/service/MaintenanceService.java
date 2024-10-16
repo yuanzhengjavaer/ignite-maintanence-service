@@ -54,5 +54,5 @@ public interface MaintenanceService extends Service {
     public List<Maintenance> getMaintenanceRecords(int vehicleId);
 
 
-    void putMaintenanceNew(Maintenance maintenance);
+    Integer getDistributedPk();
 }

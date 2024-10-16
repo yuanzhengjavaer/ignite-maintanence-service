@@ -1,6 +1,7 @@
 package com.nomura.service;
 
 import com.nomura.components.remote.VehicleService;
+import com.nomura.dao.IgniteMaintenanceDao;
 import com.nomura.model.dto.TxTestReq;
 import com.nomura.model.dto.VehicleFullInfo;
 import com.nomura.model.dto.VehicleInfoReq;
@@ -17,22 +18,20 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.PostConstruct;
-import javax.cache.Cache;
-import java.util.ArrayList;
+
 import java.util.List;
-import java.util.Map;
+
 
 @Service
-@DependsOn("ignite")
 public class BussinessService {
-    @Autowired
-    private Ignite ignite;
     @Autowired
     private MaintenanceService maintenanceService;
     @Lazy
     @Autowired
     private VehicleService vehicleService;
+    @Autowired
+    @Lazy
+    private IgniteMaintenanceDao igniteMaintenanceDao;
 
 //    @PostConstruct
 //    public void setMaintenanceService() {
@@ -45,7 +44,9 @@ public class BussinessService {
         boolean needRollBack = req.isNeedRollBack();
         List<Maintenance> maintenances = (List<Maintenance>) req.getMaintenances();
         for (Maintenance newRecord : maintenances) {
-            maintenanceService.putMaintenanceNew(newRecord);
+            Integer pk = maintenanceService.getDistributedPk();
+            newRecord.setId(pk);
+            igniteMaintenanceDao.insert(newRecord);
         }
 
         if (needRollBack) {
@@ -61,7 +62,9 @@ public class BussinessService {
             Integer vehiclePk = vehicleService.addVehicle(vehicle);
             List<Maintenance> maintenances = req.getMaintenances();
             for (Maintenance maintenance : maintenances) {
-                maintenanceService.putMaintenanceNew(maintenance);
+                Integer pk = maintenanceService.getDistributedPk();
+                maintenance.setId(pk);
+                igniteMaintenanceDao.insert(maintenance);
             }
         }
     }

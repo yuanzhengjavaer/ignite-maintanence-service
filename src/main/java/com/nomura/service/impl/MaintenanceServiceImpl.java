@@ -44,6 +44,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.locks.Lock;
 
 /**
  * An implementation of {@link MaintenanceService} that will be deployed in the cluster.
@@ -68,14 +69,6 @@ public class MaintenanceServiceImpl implements MaintenanceService {
      */
     private IgniteAtomicSequence sequence;
 
-    /**
-     * Processor that accepts requests from external apps that don't use Apache Ignite API.
-     */
-    private ExternalCallsProcessor externalCallsProcessor;
-
-    @Autowired
-    @Lazy
-    private IgniteMaintenanceDao igniteMaintenanceDao;
 
     /**
      * {@inheritDoc}
@@ -111,9 +104,6 @@ public class MaintenanceServiceImpl implements MaintenanceService {
      */
     public void cancel(ServiceContext ctx) {
         System.out.println("Stopping Maintenance Service on node:" + ignite.cluster().localNode());
-
-        // Stopping external requests processor.
-        externalCallsProcessor.interrupt();
     }
 
     /**
@@ -143,9 +133,7 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                 "WHERE vehicleId = ?").setArgs(vehicleId);
 
         List<Cache.Entry<Long, Maintenance>> res = maintCache.query(query).getAll();
-
         List<Maintenance> res2 = new ArrayList<Maintenance>(res.size());
-
         for (Cache.Entry<Long, Maintenance> entry : res)
             res2.add(entry.getValue());
 
@@ -154,67 +142,8 @@ public class MaintenanceServiceImpl implements MaintenanceService {
 
 
     @Override
-    public void putMaintenanceNew(Maintenance maintenance) {
+    public Integer getDistributedPk() {
+        return (int) ignite.atomicSequence("MaintenanceIds", 1, true).getAndIncrement();
 
-        long pk = ignite.atomicSequence("MaintenanceIds", 1, true).getAndIncrement();
-        maintenance.setId((int) pk);
-        igniteMaintenanceDao.insert(maintenance);
-    }
-
-
-    /**
-     * Thread that accepts request from external applications that don't use Apache Ignite service grid API.
-     */
-    private class ExternalCallsProcessor extends Thread {
-        /**
-         * Server socket to accept external connections.
-         */
-        private ServerSocket externalConnect;
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void run() {
-            try {
-                externalConnect = new ServerSocket(50000);
-
-                while (!isInterrupted()) {
-                    Socket socket = externalConnect.accept();
-
-                    DataInputStream dis = new DataInputStream(socket.getInputStream());
-
-                    // Getting vehicleId.
-                    int vehicleId = dis.readInt();
-
-                    List<Maintenance> result = getMaintenanceRecords(vehicleId);
-
-                    ObjectOutputStream dos = new ObjectOutputStream(socket.getOutputStream());
-
-                    // Writing the result into the socket.
-                    dos.writeObject(result);
-
-                    dis.close();
-                    dos.close();
-                    socket.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void interrupt() {
-            super.interrupt();
-
-            try {
-                externalConnect.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
     }
 }
